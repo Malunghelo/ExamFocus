@@ -134,7 +134,7 @@ async function fetchCourses(collectionId, collectionName) {
             // Function to update the button based on payment status
             const updateButton = (hasPaid) => {
                 if (hasPaid) {
-                    actionButton.textContent = "Access Course";
+                    actionButton.textContent = "View";
                     actionButton.onclick = () => showPlaylist(doc.id, title, description, thumbnailUrl, videoUrls);
                 } else {
                     actionButton.textContent = "Purchase Course";
