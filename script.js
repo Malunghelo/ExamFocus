@@ -69,7 +69,7 @@ function displayCollections() {
 
 // Function to check if a user has paid for a course
 async function hasUserPaid(userId, courseId) {
-    const paymentRef = db.collection("users")
+    const paymentRef = db.collection("novar users")
         .doc(userId)
         .collection("payments")
         .doc(courseId);
