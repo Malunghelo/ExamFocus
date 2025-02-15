@@ -6,19 +6,20 @@ const firebaseConfig = {
     storageBucket: "student-portal-a2284.appspot.com",
     messagingSenderId: "854780246625",
     appId: "1:854780246625:web:86899fc898fa2650668820"
-  };
+};
 
 // Initialize Firebase
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 const db = firebase.firestore();
+const auth = firebase.auth();
 
 // List of collections
 const collections = [
-    { id: "NSCGrade10Above50MathsAlgebraicExpression", name: "Grade 10 Maths: Algebraic Expressions", thumbnail: "https://example.com/grade10-maths.jpg" },
-    { id: "NSCGrade11Above50MathsEquationAndInequalities", name: "Grade 11 Maths: Equations & Inequalities", thumbnail: "https://example.com/grade11-maths.jpg" },
-    { id: "NSCGrade12UpgradingPhysicsVPM", name: "Grade 12 Physics: VPM", thumbnail: "https://example.com/grade12-physics.jpg" }
+    { id: "NSCGrade10Above50MathsAlgebraicExpression", name: "Grade 10 ExamFocus", thumbnail: "https://example.com/grade10-maths.jpg" },
+    { id: "NSCGrade11Above50MathsEquationAndInequalities", name: "Grade 11 ExamFocus", thumbnail: "https://example.com/grade11-maths.jpg" },
+    { id: "NSCGrade12UpgradingPhysicsVPM", name: "Grade 12 ExamFocus", thumbnail: "https://example.com/grade12-physics.jpg" }
 ];
 
 // Function to show loading indicator
@@ -66,6 +67,16 @@ function displayCollections() {
     });
 }
 
+// Function to check if a user has paid for a course
+async function hasUserPaid(userId, courseId) {
+    const paymentRef = db.collection("users")
+        .doc(userId)
+        .collection("payments")
+        .doc(courseId);
+    const doc = await paymentRef.get();
+    return doc.exists; // true = paid, false = not paid
+}
+
 // Function to fetch and display courses
 async function fetchCourses(collectionId, collectionName) {
     showLoading();
@@ -79,11 +90,14 @@ async function fetchCourses(collectionId, collectionName) {
     document.getElementById("collection-list-screen").style.display = "none";
     document.getElementById("course-list-screen").style.display = "block";
 
+    const user = auth.currentUser;
+    const userUid = user ? user.uid : null;
+
     try {
         // Fetch documents from the Firestore collection
         const querySnapshot = await db.collection(collectionId).get();
 
-        querySnapshot.forEach((doc) => {
+        querySnapshot.forEach(async (doc) => {
             const data = doc.data();
             const thumbnailUrl = data.thumbnailUrl;
             const title = data.title || "No Title"; // Fallback if title is missing
@@ -113,17 +127,42 @@ async function fetchCourses(collectionId, collectionName) {
             courseDescription.className = "course-description";
             courseDescription.textContent = description;
 
-            // Purchase Button
-            const purchaseButton = document.createElement("button");
-            purchaseButton.className = "purchase-button";
-            purchaseButton.textContent = "Purchase Course";
-            purchaseButton.onclick = () => showPlaylist(doc.id, title, description, thumbnailUrl, videoUrls);
+            // Purchase Button or Access Button
+            const actionButton = document.createElement("button");
+            actionButton.className = "purchase-button";
+
+            // Function to update the button based on payment status
+            const updateButton = (hasPaid) => {
+                if (hasPaid) {
+                    actionButton.textContent = "Access Course";
+                    actionButton.onclick = () => showPlaylist(doc.id, title, description, thumbnailUrl, videoUrls);
+                } else {
+                    actionButton.textContent = "Purchase Course";
+                    actionButton.onclick = () => initiatePayment(doc.id, title, description, thumbnailUrl, videoUrls);
+                }
+            };
+
+            // Check if the user has paid for the course
+            if (userUid) {
+                const paymentRef = db.collection("novar users")
+                    .doc(userUid)
+                    .collection("payments")
+                    .doc(doc.id);
+
+                // Listen for real-time updates
+                paymentRef.onSnapshot((docSnapshot) => {
+                    const hasPaid = docSnapshot.exists;
+                    updateButton(hasPaid);
+                });
+            } else {
+                updateButton(false);
+            }
 
             // Append elements to the course container
             courseContainer.appendChild(thumbnail);
             courseContent.appendChild(courseTitle);
             courseContent.appendChild(courseDescription);
-            courseContent.appendChild(purchaseButton);
+            courseContent.appendChild(actionButton);
             courseContainer.appendChild(courseContent);
 
             // Append the course container to the grid
@@ -132,6 +171,61 @@ async function fetchCourses(collectionId, collectionName) {
     } catch (error) {
         showToast("Error fetching courses. Please try again.", "error");
         console.error("Error fetching courses: ", error);
+    } finally {
+        hideLoading();
+    }
+}
+
+// Function to initiate Paystack payment
+function initiatePayment(courseId, courseTitle, courseDescription, thumbnailUrl, videoUrls) {
+    const user = auth.currentUser;
+    if (!user) {
+        showToast("Please log in to purchase the course.", "error");
+        return;
+    }
+
+    const userUid = user.uid;
+    const email = user.email;
+
+    const paymentHandler = PaystackPop.setup({
+        key: 'pk_test_368e65cff4a74e4511b39f8c5e255c4cddbb57b3', // Replace with your Paystack public key
+        email: email,
+        amount: 500000, // Amount in kobo (e.g., 500000 for ₦5000)
+        currency: 'ZAR',
+        ref: `PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`, // Generate a unique reference
+        onClose: () => showToast("Payment was not completed.", "error"),
+        callback: (response) => {
+            if (response.status === 'success') {
+                storePaymentInfo(courseId, userUid, courseTitle, courseDescription, thumbnailUrl, videoUrls);
+            } else {
+                showToast("Payment failed. Please try again.", "error");
+            }
+        }
+    });
+
+    paymentHandler.openIframe();
+}
+
+// Function to store payment information in Firestore
+async function storePaymentInfo(courseId, userUid, courseTitle, courseDescription, thumbnailUrl, videoUrls) {
+    showLoading();
+    try {
+        await db.collection("users")
+            .doc(userUid)
+            .collection("payments")
+            .doc(courseId)
+            .set({
+                paidAt: firebase.firestore.FieldValue.serverTimestamp(),
+                courseId: courseId
+            });
+
+        showToast("Payment successful! You now have access to the course.", "success");
+
+        // Automatically go to the playlist screen after payment
+        showPlaylist(courseId, courseTitle, courseDescription, thumbnailUrl, videoUrls);
+    } catch (error) {
+        showToast("Error storing payment information. Please try again.", "error");
+        console.error("Error storing payment info: ", error);
     } finally {
         hideLoading();
     }
@@ -217,4 +311,7 @@ function goBackToPlaylist() {
 }
 
 // Display collections when the page loads
+
+
+
 window.onload = displayCollections;

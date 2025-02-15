@@ -11,14 +11,14 @@
 <body>
     <!-- Collection List Screen -->
     <div id="collection-list-screen">
-        <h1 class="main-title">Select a Collection</h1>
+        <h1 class="main-title">Select a Grade</h1>
         <div class="collections-grid" id="collections-grid">
             <!-- Collection cards will be dynamically inserted here -->
         </div>
     </div>
 
     <!-- Course List Screen -->
-    <div id="course-list-screen">
+    <div id="course-list-screen" style="display: none;">
         <h1 class="main-title" id="course-list-title"></h1>
         <div class="courses-grid" id="courses-grid">
             <!-- Course containers will be dynamically inserted here -->
@@ -26,7 +26,7 @@
     </div>
 
     <!-- Playlist Screen -->
-    <div id="playlist-screen" class="playlist-screen">
+    <div id="playlist-screen" class="playlist-screen" style="display: none;">
         <div class="playlist-header">
             <div class="playlist-thumbnail" id="playlist-thumbnail"></div>
             <div class="playlist-info">
@@ -39,7 +39,7 @@
     </div>
 
     <!-- Video Player Screen -->
-    <div id="video-player-screen" class="video-player-screen">
+    <div id="video-player-screen" class="video-player-screen" style="display: none;">
         <div class="video-player-header">
             <button class="back-button" onclick="goBackToPlaylist()">Back to Playlist</button>
         </div>
@@ -63,6 +63,10 @@
     <!-- Firebase and Firestore SDK (Compatibility Version) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+
+    <!-- Paystack Inline Script -->
+    <script src="https://js.paystack.co/v1/inline.js"></script>
 
     <!-- External JavaScript -->
     <script src="script.js"></script>
