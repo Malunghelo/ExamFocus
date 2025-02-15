@@ -210,7 +210,7 @@ function initiatePayment(courseId, courseTitle, courseDescription, thumbnailUrl,
 async function storePaymentInfo(courseId, userUid, courseTitle, courseDescription, thumbnailUrl, videoUrls) {
     showLoading();
     try {
-        await db.collection("users")
+        await db.collection("novar users")
             .doc(userUid)
             .collection("payments")
             .doc(courseId)
